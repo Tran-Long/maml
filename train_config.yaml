@@ -1,0 +1,6 @@
+input_shape: [28, 28, 1]
+
+alpla: 0.4
+n_inner_gradient_steps: 1
+n_finetune_gradient_steps: 3
+
