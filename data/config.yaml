@@ -1,8 +1,8 @@
 root_path: /archive/omniglot/random_split
 train_dir_name: images_background
-test_dir_name: images_evaluation
+val_dir_name: images_evaluation
 
-n_ways: 20
+n_ways: 5
 k_shots: 5
 
 meta_batch_size: 32 # Number of tasks to sample in a batch

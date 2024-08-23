@@ -1,6 +1,11 @@
 input_shape: [28, 28, 1]
 
-alpla: 0.4
+alpha: 0.4
+beta: 0.001
 n_inner_gradient_steps: 1
 n_finetune_gradient_steps: 3
 
+n_steps: 5000
+val_interval: 100
+
+root_log_dir: logs

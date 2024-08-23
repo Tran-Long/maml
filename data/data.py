@@ -37,7 +37,7 @@ class MetaDataset:
     def sample_task(self):
         selected_character_indices = rng.choice(len(self.character_names), self.n_ways, replace=False)
         train_image_paths, val_image_paths = [], []
-        train_labels, test_labels = [], []
+        train_labels, val_labels = [], []
 
         for pseudo_cls, char_idx in enumerate(selected_character_indices):
             character_name = self.character_names[char_idx]
@@ -49,8 +49,8 @@ class MetaDataset:
             train_image_paths.extend([self.images_dict[character_name][idx] for idx in selected_image_indices[:self.k_shots]])
             val_image_paths.extend([self.images_dict[character_name][idx] for idx in selected_image_indices[self.k_shots:]])
             train_labels.extend([pseudo_cls] * self.k_shots)
-            test_labels.extend([pseudo_cls] * meta_test_per_class)
-        return Dataset(train_image_paths, train_labels, mode="train"), Dataset(val_image_paths, test_labels, mode="test")
+            val_labels.extend([pseudo_cls] * meta_test_per_class)
+        return Dataset(train_image_paths, train_labels, mode="train"), Dataset(val_image_paths, val_labels, mode="test")
 
 
 class Dataset:
@@ -64,10 +64,12 @@ class Dataset:
         
     def __load_image(self, image_path):
         gray_image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+        gray_image = cv2.resize(gray_image, (28, 28))
+        gray_image = gray_image.astype(np.float32) / 255.0
         gray_image = np.expand_dims(gray_image, -1)
         return self.transform(gray_image)
 
     def sample(self):
-        images = np.asarray([self.__load_image(image_path) for image_path in self.images])
-        labels = np.asarray(self.labels)
+        images = np.array([self.__load_image(image_path) for image_path in self.images])
+        labels = np.array(self.labels)
         return images, labels

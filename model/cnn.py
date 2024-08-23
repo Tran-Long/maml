@@ -26,6 +26,7 @@ class CNNModule(nn.Module):
 class CNN(nn.Module):
     """A simple CNN model."""
     n_modules: int = 4
+    n_classes: int = 5
 
     @nn.compact
     def __call__(self, x):
@@ -33,6 +34,9 @@ class CNN(nn.Module):
             x = CNNModule()(x)
         x = nn.avg_pool(x, window_shape=(x.shape[1], x.shape[2]))
         x = x.reshape((x.shape[0], -1))
+        x = nn.Dense(features=128)(x)
+        x = nn.relu(x)
+        x = nn.Dense(features=self.n_classes)(x)
         return x
   
 class CNNWithBatchNorm(nn.Module):
