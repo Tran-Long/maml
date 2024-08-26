@@ -1,9 +1,8 @@
-root_path: /archive/omniglot/random_split
+root_path: /home/parzival/Projects/maml/data/random_split
 train_dir_name: images_background
 val_dir_name: images_evaluation
 
 n_ways: 5
 k_shots: 5
 
-meta_batch_size: 32 # Number of tasks to sample in a batch
 meta_test_per_class: 1 # Number of test samples per class
