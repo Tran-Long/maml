@@ -25,10 +25,10 @@ meta_batch_size_eval = TRAIN_CONFIG.get("meta_batch_size_eval", meta_batch_size)
 meta_train_dataset = MetaDataset(mode="train")
 meta_test_dataset = MetaDataset(mode="val")
 
-model = CNN()
+model = CNN(n_classes=meta_train_dataset.n_ways)
 rng, init_key = jax.random.split(rng)
 dummy_data = jnp.ones([1, *TRAIN_CONFIG["input_shape"]])
-train_state = create_train_state(model, init_key, dummy_data, beta)
+state = create_train_state(model, init_key, dummy_data, beta)
 
 for step in range(TRAIN_CONFIG["n_steps"]):
     train_images, train_labels, test_images, test_labels = [], [], [], []
@@ -41,9 +41,10 @@ for step in range(TRAIN_CONFIG["n_steps"]):
         test_images.append(test_imgs)
         test_labels.append(test_lbls)
     train_task_info = [train_images, train_labels, test_images, test_labels]
-    train_state, train_metrics = train_step(train_state, train_task_info, n_inner_gradient_steps, alpha)
+    state, train_metrics = train_step(state, train_task_info, n_inner_gradient_steps, alpha)
     train_metrics = get_metrics(train_metrics)
-    print(f"Step {step}: Train Loss: {train_metrics['loss']:.4f}, Val Accuracy: {train_metrics['accuracy']:.4f}")
+    print(f"Step {step}: {train_metrics}")
+    # print(f"Step {step}: Train Loss: {train_metrics['loss']:.4f}, Train Accuracy: {train_metrics['accuracy']:.4f}")
     # writer.add_scalar("Loss/train", train_metrics["loss"], step)
     # writer.add_scalar("Accuracy/train", train_metrics["accuracy"], step)
     # if step % TRAIN_CONFIG["val_interval"] == 0:

@@ -20,7 +20,7 @@ class CNNModule(nn.Module):
     def __call__(self, x):
         x = nn.Conv(features=64, kernel_size=(3, 3), padding="SAME")(x)
         x = nn.relu(x)
-        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2), padding="SAME")
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2), padding="SAME")
         return x
 
 class CNN(nn.Module):
@@ -34,9 +34,10 @@ class CNN(nn.Module):
             x = CNNModule()(x)
         x = nn.avg_pool(x, window_shape=(x.shape[1], x.shape[2]))
         x = x.reshape((x.shape[0], -1))
-        x = nn.Dense(features=128)(x)
+        x = nn.Dense(features=256)(x)
         x = nn.relu(x)
         x = nn.Dense(features=self.n_classes)(x)
+        x = nn.log_softmax(x)
         return x
   
 class CNNWithBatchNorm(nn.Module):

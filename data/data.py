@@ -70,7 +70,7 @@ class Dataset:
         gray_image = cv2.resize(gray_image, (28, 28))
         gray_image = gray_image.astype(np.float32) / 255.0
         gray_image = np.expand_dims(gray_image, -1)
-        return self.transform(gray_image)
+        return gray_image
 
     def sample(self):
         images = np.array([self.__load_image(image_path) for image_path in self.images])
