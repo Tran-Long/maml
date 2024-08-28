@@ -52,7 +52,7 @@ def train_step(train_state: train_state.TrainState, train_task_info):
         return loss, logits
     train_images, train_labels = train_task_info
     (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(train_state.params, train_images, train_labels)
-    train_state.apply_gradients(grads=grads)
+    train_state = train_state.apply_gradients(grads=grads)
     metrics = compute_metrics(logits=logits, gt_labels=train_labels)
     return train_state, metrics
 

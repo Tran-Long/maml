@@ -31,19 +31,21 @@ train_state = create_train_state(model, rng, dummy_data, TRAIN_CONFIG["lr"])
 
 
 for epoch in range(TRAIN_CONFIG["n_epochs"]):
+    epoch_metrics = []
     for step, train_batch in enumerate(train_loader):
         train_state, train_metrics = train_step(train_state, train_batch)
-    
-        print(f"Step {step} - epoch {epoch}: Train Loss: {train_metrics['loss']:.4f}, Train Accuracy: {train_metrics['accuracy']:.4f}")
+        epoch_metrics.append(train_metrics)
+    epoch_metrics = get_metrics(epoch_metrics)
+    print(f"Epoch {epoch}: Train Loss: {epoch_metrics['loss']:.4f}, Train Accuracy: {epoch_metrics['accuracy']:.4f}")
     # writer.add_scalar("Loss/train", train_metrics["loss"], step)
     # writer.add_scalar("Accuracy/train", train_metrics["accuracy"], step)
-        if (step + epoch*len(train_loader)) % TRAIN_CONFIG["val_interval"] == 0:
-            all_val_metrics = []
-            for val_batch in test_loader:
-                val_metrics = val_step(train_state, val_batch)
-                all_val_metrics.append(val_metrics)
-            all_val_metrics = get_metrics(all_val_metrics)
-        #     writer.add_scalar("Loss/val", val_metrics["loss"], step)
-        #     writer.add_scalar("Accuracy/val", val_metrics["accuracy"], step)
-            print(f"Step {step}: Val Loss: {all_val_metrics['loss']:.4f}, Val Accuracy: {all_val_metrics['accuracy']:.4f}")
+    
+    all_val_metrics = []
+    for val_batch in test_loader:
+        val_metrics = val_step(train_state, val_batch)
+        all_val_metrics.append(val_metrics)
+    all_val_metrics = get_metrics(all_val_metrics)
+#     writer.add_scalar("Loss/val", val_metrics["loss"], step)
+#     writer.add_scalar("Accuracy/val", val_metrics["accuracy"], step)
+    print(f"Val Loss: {all_val_metrics['loss']:.4f}, Val Accuracy: {all_val_metrics['accuracy']:.4f}")
 
