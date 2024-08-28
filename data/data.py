@@ -32,6 +32,7 @@ class MetaDataset:
                 self.images_dict[character_name] = []
             self.images_dict[character_name].append(image_path)
         self.character_names = list(self.images_dict.keys())
+        print(len(self.character_names))
 
     def __len__(self):
         return len(self.character_names)
@@ -65,10 +66,9 @@ class Dataset:
         return gray_image
         
     def __load_image(self, image_path):
-        print(image_path)
         gray_image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
         gray_image = cv2.resize(gray_image, (28, 28))
-        # gray_image = gray_image.astype(np.float32) / 255.0
+        gray_image = gray_image.astype(np.float32) / 255.0
         gray_image = np.expand_dims(gray_image, -1)
         return self.transform(gray_image)
 

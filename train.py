@@ -31,20 +31,27 @@ dummy_data = jnp.ones([1, *TRAIN_CONFIG["input_shape"]])
 train_state = create_train_state(model, init_key, dummy_data, beta)
 
 for step in range(TRAIN_CONFIG["n_steps"]):
+    train_images, train_labels, test_images, test_labels = [], [], [], []
     for _ in range(meta_batch_size):
         train_dataset, test_dataset = meta_train_dataset.sample_task()
-        train_task_info = [*train_dataset.sample(), *test_dataset.sample()]
-        train_state, train_metrics = train_step(train_state, train_task_info, n_inner_gradient_steps, meta_batch_size, alpha)
-        train_metrics = get_metrics(train_metrics)
-        print(f"Step {step}: Train Loss: {train_metrics['loss']:.4f}, Val Accuracy: {train_metrics['accuracy']:.4f}")
-        writer.add_scalar("Loss/train", train_metrics["loss"], step)
-        writer.add_scalar("Accuracy/train", train_metrics["accuracy"], step)
-    if step % TRAIN_CONFIG["val_interval"] == 0:
-        train_dataset, test_dataset = meta_test_dataset.sample_task()
-        val_task_info = [*train_dataset.sample(), *test_dataset.sample()]
-        val_metrics = val_step(train_state, val_task_info, n_finetune_gradient_steps, meta_batch_size_eval, alpha)
-        val_metrics = get_metrics(val_metrics)
-        writer.add_scalar("Loss/val", val_metrics["loss"], step)
-        writer.add_scalar("Accuracy/val", val_metrics["accuracy"], step)
-        print(f"Step {step}: Val Loss: {val_metrics['loss']:.4f}, Val Accuracy: {val_metrics['accuracy']:.4f}")
+        train_imgs, train_lbls = train_dataset.sample()
+        test_imgs, test_lbls = test_dataset.sample()
+        train_images.append(train_imgs)
+        train_labels.append(train_lbls)
+        test_images.append(test_imgs)
+        test_labels.append(test_lbls)
+    train_task_info = [train_images, train_labels, test_images, test_labels]
+    train_state, train_metrics = train_step(train_state, train_task_info, n_inner_gradient_steps, alpha)
+    train_metrics = get_metrics(train_metrics)
+    print(f"Step {step}: Train Loss: {train_metrics['loss']:.4f}, Val Accuracy: {train_metrics['accuracy']:.4f}")
+    # writer.add_scalar("Loss/train", train_metrics["loss"], step)
+    # writer.add_scalar("Accuracy/train", train_metrics["accuracy"], step)
+    # if step % TRAIN_CONFIG["val_interval"] == 0:
+    #     train_dataset, test_dataset = meta_test_dataset.sample_task()
+    #     val_task_info = [*train_dataset.sample(), *test_dataset.sample()]
+    #     val_metrics = val_step(train_state, val_task_info, n_finetune_gradient_steps, meta_batch_size_eval, alpha)
+    #     val_metrics = get_metrics(val_metrics)
+    #     writer.add_scalar("Loss/val", val_metrics["loss"], step)
+    #     writer.add_scalar("Accuracy/val", val_metrics["accuracy"], step)
+    #     print(f"Step {step}: Val Loss: {val_metrics['loss']:.4f}, Val Accuracy: {val_metrics['accuracy']:.4f}")
 
