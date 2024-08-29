@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import yaml
 
-rng = np.random.default_rng(37)
+rng = np.random.default_rng(73)
 
 class MetaDataset:
     def __init__(self, mode="train", config_file=Path(__file__).parent/"config.yaml") -> None:
@@ -68,7 +68,7 @@ class Dataset:
     def __load_image(self, image_path):
         gray_image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
         gray_image = cv2.resize(gray_image, (28, 28))
-        gray_image = gray_image.astype(np.float32) / 255.0
+        gray_image = (255 - gray_image.astype(np.float32)) / 255.0
         gray_image = np.expand_dims(gray_image, -1)
         return gray_image
 

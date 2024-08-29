@@ -8,6 +8,9 @@ import jax.numpy as jnp
 import flax.linen as nn
 from data.data import MetaDataset
 
+class TrainStateWithBatchNorm(train_state.TrainState):
+    batch_stats: Any
+
 def get_optimizer(learning_rate):
     return optax.adam(learning_rate=learning_rate)
     # return optax.sgd(learning_rate=learning_rate)
@@ -69,18 +72,18 @@ def train_step(state: train_state.TrainState, train_task_info, n_inner_gradient_
         step_metrics.append(metrics)
     return state, step_metrics
 
-@partial(jax.jit, static_argnums=(2,))
-def val_step(state: train_state.TrainState, val_task_info, n_finetune_gradient_steps, alpha):
+@partial(jax.jit, static_argnums=(2, 3))
+def val_step(train_state: train_state.TrainState, meta_val_dts: MetaDataset, n_finetune_gradient_steps, meta_batchsize, alpha):
     def loss_fn(params, imgs, lbls):
-        logits = state.apply_fn({'params': params}, imgs)
-        one_hot_gt_labels = jax.nn.one_hot(lbls, num_classes=logits.shape[-1])
-        loss = -jnp.mean(jnp.sum(one_hot_gt_labels * logits, axis=-1))
+        logits = train_state.apply_fn({'params': params}, imgs)
+        loss = optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=lbls).mean()
         return loss, logits
-    train_images, train_labels, test_images, test_labels = val_task_info
     step_metrics = []
-    meta_params = state.params.copy()
-    for train_imgs, train_lbls, test_imgs, test_lbls in zip(train_images, train_labels, test_images, test_labels):
-        params = meta_params.copy()
+    params = train_state.params
+    for _ in range(meta_batchsize):
+        train_dataset, val_dataset = meta_val_dts.sample_task()
+        train_imgs, train_lbls = train_dataset.sample()
+        test_imgs, test_lbls = val_dataset.sample()   
         # inner_opt = get_optimizer(alpha)
         # inner_opt_state = inner_opt.init(params)
         for _ in range(n_finetune_gradient_steps):
@@ -92,4 +95,4 @@ def val_step(state: train_state.TrainState, val_task_info, n_finetune_gradient_s
         _, test_logits = loss_fn(params, test_imgs, test_lbls)
         metrics = compute_metrics(logits=test_logits, gt_labels=test_lbls)
         step_metrics.append(metrics)
-    return step_metrics 
+    return step_metrics
