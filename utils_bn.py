@@ -21,9 +21,11 @@ def get_metrics(step_metrics):
     return mean_metrics
 
 def create_train_state(model: nn.Module, key, dummy_data, beta):
-    params = model.init(key, dummy_data)['params']
+    variables = model.init(key, dummy_data, train=False)
+    params = variables['params']
+    batch_stats = variables['batch_stats']
     tx = get_optimizer(beta)
-    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+    return TrainStateWithBatchNorm.create(apply_fn=model.apply, params=params, tx=tx, batch_stats=batch_stats)
 
 def update_params_naive(params, grads, lr):
     return jax.tree_map(lambda p, g: p - lr * g, params, grads)
@@ -45,54 +47,58 @@ def compute_metrics(logits, gt_labels, additional_info={}):
     }
     return metrics
 
-# @jax.jit
 @partial(jax.jit, static_argnums=(2, ))
-def train_step(state: train_state.TrainState, train_task_info, n_inner_gradient_steps, alpha):
-# def train_step(state: train_state.TrainState, train_task_info, alpha):
-    def loss_fn(params, imgs, lbls):
-        logits = state.apply_fn({'params': params}, imgs)
+def train_step(state: TrainStateWithBatchNorm, train_task_info, n_inner_gradient_steps, alpha):
+    def loss_fn(params, batch_stats, imgs, lbls):
+        logits, updates = state.apply_fn({'params': params, 'batch_stats': batch_stats}, imgs, train=True, mutable=['batch_stats'])
         one_hot_gt_labels = jax.nn.one_hot(lbls, num_classes=logits.shape[-1])
         loss = -jnp.mean(jnp.sum(one_hot_gt_labels * logits, axis=-1))
-        return loss, logits
+        return loss, (logits, updates["batch_stats"])
 
-    def meta_loss_fn(params, train_imgs, train_lbls, test_imgs, test_lbls):
+    def meta_loss_fn(params, batch_stats, train_imgs, train_lbls, test_imgs, test_lbls):
         for _ in range(n_inner_gradient_steps):
-            grad, _ = jax.grad(loss_fn, has_aux=True)(params, train_imgs, train_lbls)
+            grad, (_, batch_stats) = jax.grad(loss_fn, has_aux=True)(params, batch_stats, train_imgs, train_lbls)
             params = jax.tree_map(lambda p, g: p - alpha * g, params, grad)
-        return loss_fn(params, test_imgs, test_lbls)
+        test_logits = state.apply_fn({'params': params, 'batch_stats': batch_stats}, test_imgs, train=False)
+        one_hot_gt_labels = jax.nn.one_hot(test_lbls, num_classes=test_logits.shape[-1])
+        loss = -jnp.mean(jnp.sum(one_hot_gt_labels * test_logits, axis=-1))
+        return loss, (test_logits, batch_stats)
 
     train_images, train_labels, test_images, test_labels = train_task_info
     step_metrics = []
     params = state.params.copy()
     for train_imgs, train_lbls, test_imgs, test_lbls in zip(train_images, train_labels, test_images, test_labels):
         # task_params = params.copy()
-        meta_grad, test_logits = jax.grad(meta_loss_fn, has_aux=True)(params, train_imgs, train_lbls, test_imgs, test_lbls)     
+        meta_grad, (test_logits, batch_stats) = jax.grad(meta_loss_fn, has_aux=True)(params, state.batch_stats, train_imgs, train_lbls, test_imgs, test_lbls)     
         state = state.apply_gradients(grads=meta_grad)
+        state = state.replace(batch_stats=batch_stats)
         metrics = compute_metrics(logits=test_logits, gt_labels=test_lbls)
         step_metrics.append(metrics)
     return state, step_metrics
 
-@partial(jax.jit, static_argnums=(2, 3))
-def val_step(train_state: train_state.TrainState, meta_val_dts: MetaDataset, n_finetune_gradient_steps, meta_batchsize, alpha):
-    def loss_fn(params, imgs, lbls):
-        logits = train_state.apply_fn({'params': params}, imgs)
-        loss = optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=lbls).mean()
-        return loss, logits
+@partial(jax.jit, static_argnums=(2,))
+def val_step(state: TrainStateWithBatchNorm, val_task_info, n_finetune_gradient_steps, alpha):
+    def loss_fn(params, batch_stats, imgs, lbls):
+        logits, updates = state.apply_fn({'params': params, 'batch_stats': batch_stats}, imgs, train=True, mutable=['batch_stats'])
+        one_hot_gt_labels = jax.nn.one_hot(lbls, num_classes=logits.shape[-1])
+        loss = -jnp.mean(jnp.sum(one_hot_gt_labels * logits, axis=-1))
+        return loss, (logits, updates["batch_stats"])
+    train_images, train_labels, test_images, test_labels = val_task_info
     step_metrics = []
-    params = train_state.params
-    for _ in range(meta_batchsize):
-        train_dataset, val_dataset = meta_val_dts.sample_task()
-        train_imgs, train_lbls = train_dataset.sample()
-        test_imgs, test_lbls = val_dataset.sample()   
+    meta_params = state.params.copy()
+    meta_batch_stats = state.batch_stats
+    for train_imgs, train_lbls, test_imgs, test_lbls in zip(train_images, train_labels, test_images, test_labels):
+        params = meta_params.copy()
+        batch_stats = meta_batch_stats.copy()
         # inner_opt = get_optimizer(alpha)
         # inner_opt_state = inner_opt.init(params)
         for _ in range(n_finetune_gradient_steps):
-            grads, _ = jax.grad(loss_fn, has_aux=True)(params, train_imgs, train_lbls)
+            grads, (_, batch_stats) = jax.grad(loss_fn, has_aux=True)(params, batch_stats, train_imgs, train_lbls)
             params = update_params_naive(params, grads, alpha)
             # updates, inner_opt_state = inner_opt.update(grads, inner_opt_state, params)
             # params = optax.apply_updates(params, updates)
 
-        _, test_logits = loss_fn(params, test_imgs, test_lbls)
+        test_logits = state.apply_fn({'params': params, 'batch_stats': batch_stats}, test_imgs, train=False)
         metrics = compute_metrics(logits=test_logits, gt_labels=test_lbls)
         step_metrics.append(metrics)
     return step_metrics

@@ -1,6 +1,0 @@
-input_shape: [32, 32, 3]
-
-lr: 0.01
-n_epochs: 100
-val_interval: 100
-batch_size: 256

@@ -8,8 +8,8 @@ import jax
 import jax.numpy as jnp
 import yaml
 from data.data import MetaDataset
-from model.cnn import CNN
-from utils import create_train_state, train_step, val_step, get_metrics
+from model.cnn import CNNWithBatchNorm
+from utils_bn import create_train_state, train_step, val_step, get_metrics
 from torch.utils.tensorboard import SummaryWriter
 
 rng = jax.random.PRNGKey(0)
@@ -28,7 +28,7 @@ meta_batch_size_eval = TRAIN_CONFIG.get("meta_batch_size_eval", meta_batch_size)
 meta_batch_size_eval = meta_batch_size_eval if isinstance(meta_batch_size_eval, int) else int(meta_batch_size_eval * len(meta_test_dataset))
 
 
-model = CNN(n_classes=meta_train_dataset.n_ways)
+model = CNNWithBatchNorm(n_classes=meta_train_dataset.n_ways)
 rng, init_key = jax.random.split(rng)
 dummy_data = jnp.ones([1, *TRAIN_CONFIG["input_shape"]])
 state = create_train_state(model, init_key, dummy_data, beta)

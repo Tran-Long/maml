@@ -10,7 +10,7 @@ class CNNModuleWithBatchnorm(nn.Module):
         x = nn.Conv(features=64, kernel_size=(3, 3), padding="SAME")(x)
         x = nn.BatchNorm(use_running_average=not train)(x)
         x = nn.relu(x)
-        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2), padding="SAME")
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2), padding="SAME")
         return x
     
 class CNNModule(nn.Module):
@@ -43,11 +43,16 @@ class CNN(nn.Module):
 class CNNWithBatchNorm(nn.Module):
     """A simple CNN model."""
     n_modules: int = 4
+    n_classes: int = 5
 
     @nn.compact
     def __call__(self, x, train):
         for _ in range(self.n_modules):
-            x = CNNModule()(x, train=train)
+            x = CNNModuleWithBatchnorm()(x, train=train)
         x = nn.avg_pool(x, window_shape=(x.shape[1], x.shape[2]))
         x = x.reshape((x.shape[0], -1))
+        x = nn.Dense(features=256)(x)
+        x = nn.relu(x)
+        x = nn.Dense(features=self.n_classes)(x)
+        x = nn.log_softmax(x)
         return x

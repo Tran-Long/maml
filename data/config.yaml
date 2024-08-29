@@ -1,4 +1,4 @@
-root_path: /home/administrator/projects/longth/other/random_split
+root_path: /archive/omniglot/random_split
 train_dir_name: images_background
 val_dir_name: images_evaluation
 
